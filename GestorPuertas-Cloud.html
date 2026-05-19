@@ -1,0 +1,924 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>GestorPuertas Cloud</title>
+
+<!-- ══════════════════════════════════════════════════════════════
+     🔧 CONFIGURACIÓN FIREBASE — PEGA AQUÍ TUS DATOS
+     Sigue la guía paso a paso para obtener estos valores
+     ══════════════════════════════════════════════════════════════ -->
+<script>
+ const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyABC123...",
+    authDomain:        "gestorpuertas-abc.firebaseapp.com",
+    projectId:         "gestorpuertas-abc",
+    storageBucket:     "gestorpuertas-abc.appspot.com",
+    messagingSenderId: "123456789",
+    appId:             "1:123456789:web:abc123"
+};
+</script>
+
+<!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-firestore-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js"></script>
+
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink: #1a1410; --paper: #f5f0e8; --warm: #e8dcc8; --accent: #8b4513;
+  --accent2: #c17f3a; --light: #f0e6d3; --muted: #7a6a58; --border: #c8b89a;
+  --card: #fdfaf5; --danger: #8b2020; --success: #3d6b47; --info: #1a4ccf;
+}
+body { font-family: 'Segoe UI', Tahoma, sans-serif; background: var(--paper); color: var(--ink); min-height: 100vh; font-size: 14px; }
+
+/* ── LOGIN SCREEN ── */
+#login-screen {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 100vh; background: var(--ink);
+}
+.login-card {
+  background: var(--card); border-radius: 16px; padding: 2.5rem 2rem;
+  width: 100%; max-width: 400px; text-align: center;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.login-logo { font-size: 3rem; margin-bottom: 0.5rem; }
+.login-title { font-size: 1.6rem; font-weight: 700; color: var(--ink); margin-bottom: 0.25rem; }
+.login-title em { color: var(--accent2); font-style: italic; font-weight: 300; }
+.login-sub { font-size: 0.85rem; color: var(--muted); margin-bottom: 2rem; }
+.btn-google {
+  display: flex; align-items: center; justify-content: center; gap: 0.75rem;
+  width: 100%; padding: 0.85rem 1.5rem; border-radius: 10px;
+  border: 1.5px solid var(--border); background: #fff; cursor: pointer;
+  font-family: inherit; font-size: 0.95rem; font-weight: 600; color: var(--ink);
+  transition: all 0.2s; box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+.btn-google:hover { background: var(--light); border-color: var(--accent); transform: translateY(-1px); box-shadow: 0 4px 16px rgba(0,0,0,0.12); }
+.btn-google img { width: 22px; height: 22px; }
+.login-note { font-size: 0.74rem; color: var(--muted); margin-top: 1.25rem; line-height: 1.5; }
+.login-error { background: #fce8e8; color: var(--danger); padding: 0.65rem 1rem; border-radius: 8px; font-size: 0.82rem; margin-bottom: 1rem; display: none; }
+
+/* ── CONFIG SCREEN ── */
+#config-screen {
+  display: none; align-items: center; justify-content: center;
+  min-height: 100vh; background: var(--ink); padding: 1rem;
+}
+.config-card {
+  background: var(--card); border-radius: 16px; padding: 2rem;
+  width: 100%; max-width: 600px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.4);
+}
+.config-card h2 { font-size: 1.3rem; margin-bottom: 0.5rem; }
+.config-card p { font-size: 0.85rem; color: var(--muted); margin-bottom: 1.5rem; line-height: 1.6; }
+.config-steps { background: #fff3e0; border: 1.5px solid #f0c070; border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.83rem; color: #7c4a00; line-height: 1.8; }
+.config-steps strong { display: block; margin-bottom: 0.25rem; font-size: 0.88rem; }
+
+/* ── HEADER ── */
+#app { display: none; }
+header {
+  background: var(--ink); color: var(--paper);
+  padding: 0 1.5rem; display: flex; align-items: center;
+  justify-content: space-between; height: 62px;
+  position: sticky; top: 0; z-index: 100;
+  border-bottom: 3px solid var(--accent2);
+}
+.logo { font-size: 1.3rem; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; }
+.logo em { color: var(--accent2); font-style: italic; font-weight: 300; }
+.cloud-badge { font-size: 0.58rem; background: var(--success); color: #fff; padding: 0.12rem 0.4rem; border-radius: 4px; font-family: monospace; }
+.sync-badge { font-size: 0.58rem; background: var(--accent2); color: var(--ink); padding: 0.12rem 0.4rem; border-radius: 4px; font-family: monospace; display: none; }
+.user-info { display: flex; align-items: center; gap: 0.5rem; font-size: 0.78rem; opacity: 0.7; }
+.user-info img { width: 26px; height: 26px; border-radius: 50%; }
+.header-btns { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; }
+
+/* ── SYNC STATUS BAR ── */
+#sync-bar {
+  background: #e6f4ea; border-bottom: 1px solid #a8d5b5;
+  padding: 0.4rem 1.5rem; font-size: 0.75rem; color: var(--success);
+  display: none; align-items: center; gap: 0.5rem; font-family: monospace;
+}
+#sync-bar.error { background: #fce8e8; border-color: #f5a8a8; color: var(--danger); }
+#sync-bar.visible { display: flex; }
+
+/* ── BACKUP BANNER ── */
+#backup-banner {
+  background: #7c4a00; color: #fff;
+  padding: 0.65rem 1.5rem; display: none; align-items: center;
+  justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  border-bottom: 3px solid var(--accent2); font-size: 0.83rem;
+}
+#backup-banner.visible { display: flex; }
+
+/* ── BUTTONS ── */
+.btn {
+  font-family: inherit; font-size: 0.82rem; font-weight: 600;
+  padding: 0.4rem 0.9rem; border-radius: 8px; border: none;
+  cursor: pointer; display: inline-flex; align-items: center;
+  gap: 0.35rem; white-space: nowrap; transition: filter 0.15s;
+}
+.btn:hover { filter: brightness(0.9); }
+.btn:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-primary   { background: var(--accent); color: #fff; }
+.btn-secondary { background: var(--warm); color: var(--ink); border: 1.5px solid var(--border); }
+.btn-ghost     { background: transparent; color: var(--muted); border: 1.5px solid var(--border); }
+.btn-danger    { background: var(--danger); color: #fff; }
+.btn-success   { background: var(--success); color: #fff; }
+.btn-info      { background: var(--info); color: #fff; }
+.btn-warning   { background: #b45309; color: #fff; }
+.btn-sm { font-size: 0.74rem; padding: 0.32rem 0.7rem; }
+.btn-backup-alert { border-color: #f0a030 !important; color: #f0a030 !important; }
+
+/* ── CONTAINER & PANEL ── */
+.container { max-width: 1400px; margin: 0 auto; padding: 1.5rem; }
+.stats-bar { display: grid; grid-template-columns: repeat(4,1fr); gap: 1rem; margin-bottom: 1.5rem; }
+.stat-card { background: var(--card); border: 1.5px solid var(--border); border-radius: 10px; padding: 0.85rem 1.1rem; }
+.stat-label { font-family: monospace; font-size: 0.62rem; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); }
+.stat-value { font-size: 1.9rem; font-weight: 700; color: var(--accent); line-height: 1.1; }
+.panel { background: var(--card); border: 1.5px solid var(--border); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 20px rgba(0,0,0,.08); }
+.panel-head { background: var(--ink); color: var(--paper); padding: 0.9rem 1.5rem; display: flex; align-items: center; justify-content: space-between; }
+.panel-head span { font-size: 1.1rem; font-weight: 600; }
+.panel-head small { font-family: monospace; font-size: 0.62rem; opacity: 0.6; }
+
+/* ── FILTER BAR ── */
+.filter-bar { padding: 1rem 1.5rem 0.5rem; display: flex; gap: 0.65rem; flex-wrap: wrap; }
+.filter-bar input, .filter-bar select {
+  font-family: inherit; font-size: 0.84rem; padding: 0.5rem 0.75rem;
+  border: 1.5px solid var(--border); border-radius: 7px;
+  background: #fff; color: var(--ink); outline: none; flex: 1; min-width: 160px; max-width: 300px;
+}
+
+/* ── TABLE ── */
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+thead th { font-family: monospace; font-size: 0.61rem; text-transform: uppercase; letter-spacing: 0.06em; color: var(--paper); background: var(--ink); padding: 0.6rem 0.8rem; text-align: left; white-space: nowrap; font-weight: 400; }
+tbody tr { border-bottom: 1px solid var(--warm); transition: background 0.1s; }
+tbody tr:nth-child(even) { background: var(--warm); }
+tbody tr:hover { background: var(--light) !important; }
+tbody td { padding: 0.55rem 0.8rem; vertical-align: middle; }
+.mono { font-family: monospace; }
+.pill { padding: 0.15rem 0.45rem; border-radius: 20px; font-size: 0.67rem; font-weight: 700; font-family: monospace; }
+.pill-abatible { background: #e8f0fe; color: #1a4ccf; }
+.pill-corredera { background: #e6f4ea; color: #1e7e34; }
+.pill-bano { background: #fce8e8; color: #9c1f1f; }
+.pill-borrador { background: #f0e6d3; color: #8b4513; }
+.pill-confirmado { background: #e8f0fe; color: #1a4ccf; }
+.pill-enviado { background: #e6f4ea; color: #1e7e34; }
+.pill-recibido { background: #e8f8f0; color: #0d5c35; }
+.num-badge { font-family: monospace; font-size: 0.7rem; background: var(--warm); border: 1px solid var(--border); padding: 0.12rem 0.4rem; border-radius: 4px; }
+.td-actions { display: flex; gap: 0.25rem; }
+.empty { text-align: center; padding: 4rem 2rem; color: var(--muted); }
+.empty-icon { font-size: 3rem; margin-bottom: 0.75rem; opacity: 0.35; }
+.empty h3 { font-size: 1.1rem; color: var(--ink); margin-bottom: 0.4rem; }
+
+/* ── FORM ── */
+.form-wrap { max-width: 1200px; margin: 0 auto; padding: 1.5rem; display: none; }
+.form-wrap.active { display: block; }
+.form-body { padding: 1.5rem; }
+.section-label { font-family: monospace; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.12em; color: var(--accent); font-weight: 600; margin: 1.25rem 0 0.65rem; padding-bottom: 0.35rem; border-bottom: 1px dashed var(--border); display: flex; align-items: center; gap: 0.4rem; }
+.section-label:first-child { margin-top: 0; }
+.grid { display: grid; gap: 1rem; }
+.g2 { grid-template-columns: 1fr 1fr; }
+.g3 { grid-template-columns: 1fr 1fr 1fr; }
+.g4 { grid-template-columns: 1fr 1fr 1fr 1fr; }
+.g5 { grid-template-columns: 1fr 1fr 1fr 1fr 1fr; }
+.field { display: flex; flex-direction: column; gap: 0.3rem; }
+.field label { font-size: 0.75rem; font-weight: 500; color: var(--muted); }
+.field label .req { color: var(--accent); }
+.field input, .field select, .field textarea { font-family: inherit; font-size: 0.87rem; padding: 0.55rem 0.85rem; border: 1.5px solid var(--border); border-radius: 7px; background: #fff; color: var(--ink); outline: none; width: 100%; transition: border-color 0.15s; }
+.field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.field textarea { resize: vertical; min-height: 80px; }
+.field input[readonly] { background: var(--warm); color: var(--muted); }
+.radio-group { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.radio-opt { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.82rem; font-weight: 400; user-select: none; transition: all 0.15s; border: 1.5px solid var(--border); background: #fff; color: var(--ink); }
+.radio-opt:has(input:checked) { border-color: var(--accent); background: var(--light); color: var(--accent); font-weight: 600; }
+.radio-opt input { accent-color: var(--accent); }
+.apertura-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.5rem; }
+.apertura-card { border: 1.5px solid var(--border); border-radius: 8px; padding: 0.6rem 0.5rem; text-align: center; cursor: pointer; background: #fff; display: flex; flex-direction: column; align-items: center; gap: 0.25rem; transition: all 0.15s; }
+.apertura-card.selected { border-color: var(--accent); background: var(--light); }
+.apertura-card .aicon { width: 36px; height: 36px; background: var(--border); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1rem; }
+.apertura-card.selected .aicon { background: var(--accent); color: #fff; }
+.apertura-card .alabel { font-size: 0.68rem; font-weight: 600; color: var(--muted); line-height: 1.3; }
+.apertura-card.selected .alabel { color: var(--accent); }
+.inset-box { background: var(--light); border: 1.5px solid var(--border); border-radius: 8px; padding: 1rem 1.25rem; }
+.tapeta-row { display: grid; grid-template-columns: 160px 1fr 1fr; gap: 0.75rem; align-items: end; padding-bottom: 0.75rem; margin-bottom: 0.75rem; border-bottom: 1px dashed var(--border); }
+.tapeta-row:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+.tapeta-side { font-weight: 600; font-size: 0.84rem; padding-bottom: 0.55rem; }
+.form-actions { display: flex; gap: 0.65rem; justify-content: flex-end; padding: 1rem 1.5rem; background: var(--warm); border-top: 1.5px solid var(--border); }
+
+/* ── MODALS ── */
+.modal-overlay { display: none; position: fixed; inset: 0; background: rgba(26,20,16,0.65); z-index: 200; align-items: center; justify-content: center; padding: 1rem; }
+.modal-overlay.open { display: flex; }
+.modal { background: var(--card); border-radius: 14px; box-shadow: 0 20px 60px rgba(0,0,0,.3); width: 100%; max-height: 90vh; overflow-y: auto; }
+.modal-head { background: var(--ink); color: var(--paper); padding: 1rem 1.5rem; display: flex; justify-content: space-between; align-items: center; border-radius: 14px 14px 0 0; position: sticky; top: 0; }
+.modal-head span { font-size: 1.1rem; font-weight: 600; }
+.modal-close { background: none; border: none; color: var(--paper); font-size: 1.3rem; cursor: pointer; opacity: 0.7; }
+.modal-close:hover { opacity: 1; }
+.modal-body { padding: 1.5rem; }
+.modal-footer { display: flex; justify-content: flex-end; gap: 0.5rem; padding: 0.75rem 1.5rem; background: var(--warm); border-top: 1px solid var(--border); }
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem 1.5rem; }
+.detail-row .dk { font-family: monospace; font-size: 0.61rem; text-transform: uppercase; color: var(--muted); letter-spacing: 0.08em; }
+.detail-row .dv { font-size: 0.89rem; font-weight: 500; }
+.notes-box { background: var(--light); border-radius: 8px; padding: 0.8rem 1rem; font-size: 0.85rem; border: 1px dashed var(--border); margin-top: 1rem; }
+.bk-box { border-radius: 10px; padding: 1.1rem 1.25rem; margin-bottom: 1rem; }
+.bk-box h4 { font-size: 0.88rem; font-weight: 700; margin-bottom: 0.4rem; }
+.bk-box p { font-size: 0.81rem; margin-bottom: 0.85rem; }
+.bk-box small { display: block; font-size: 0.74rem; margin-top: 0.6rem; }
+.bk-export { background: #e6f4ea; border: 1.5px solid #a8d5b5; }
+.bk-export h4 { color: #1e5c35; } .bk-export p,.bk-export small { color: #2d6b45; }
+.bk-restore { background: #fff3e0; border: 1.5px solid #f0c070; }
+.bk-restore h4 { color: #7c4a00; } .bk-restore p { color: #8b5500; }
+.bk-merge { background: #e8f0fe; border: 1.5px solid #a8c0f0; }
+.bk-merge h4 { color: #1a3a8f; } .bk-merge p { color: #2a4aaa; }
+.bk-footer { font-size: 0.73rem; color: var(--muted); text-align: center; border-top: 1px dashed var(--border); padding-top: 0.75rem; margin-top: 0.5rem; }
+
+/* ── TOAST ── */
+#toast { position: fixed; bottom: 1.5rem; right: 1.5rem; z-index: 600; background: var(--ink); color: var(--paper); padding: 0.75rem 1.2rem; border-radius: 10px; border-left: 4px solid var(--accent2); font-size: 0.83rem; font-weight: 500; max-width: 340px; transform: translateY(120px); opacity: 0; transition: all 0.35s cubic-bezier(0.34,1.56,0.64,1); pointer-events: none; }
+#toast.show { transform: translateY(0); opacity: 1; }
+.hidden { display: none !important; }
+
+@media (max-width: 900px) { .g4,.g5{grid-template-columns:1fr 1fr} .g3{grid-template-columns:1fr 1fr} .apertura-grid{grid-template-columns:repeat(2,1fr)} .stats-bar{grid-template-columns:repeat(2,1fr)} }
+@media (max-width: 600px) { .g2,.g3,.g4,.g5{grid-template-columns:1fr} .container,.form-wrap{padding:1rem} .tapeta-row{grid-template-columns:1fr} .header-btns{gap:0.3rem} }
+</style>
+</head>
+<body>
+
+<!-- ══ PANTALLA: CONFIGURACIÓN PENDIENTE ══ -->
+<div id="config-screen" style="display:flex;">
+  <div class="config-card">
+    <div style="font-size:2.5rem;margin-bottom:0.5rem">⚙️</div>
+    <h2>Configuración necesaria</h2>
+    <p>Antes de usar la app, debes pegar tu configuración de Firebase en el archivo.<br>Sigue la guía <strong>GUIA_CONFIGURACION.html</strong> que tienes junto a este archivo.</p>
+    <div class="config-steps">
+      <strong>Resumen rápido:</strong>
+      1. Ve a <strong>console.firebase.google.com</strong><br>
+      2. Crea un proyecto → Firestore → Authentication con Google<br>
+      3. Copia la configuración y pégala al principio de este archivo HTML<br>
+      4. Guarda y vuelve a abrir
+    </div>
+    <p style="font-size:0.78rem;color:var(--muted)">Si ya has configurado Firebase y ves este mensaje, revisa que hayas pegado correctamente los valores en <code>FIREBASE_CONFIG</code> al inicio del archivo.</p>
+  </div>
+</div>
+
+<!-- ══ PANTALLA: LOGIN ══ -->
+<div id="login-screen" style="display:none;">
+  <div class="login-card">
+    <div class="login-logo">🚪</div>
+    <div class="login-title">Gestor<em>Puertas</em></div>
+    <div class="login-sub">Gestión de pedidos de puertas de paso interior</div>
+    <div class="login-error" id="login-error"></div>
+    <button class="btn-google" onclick="loginGoogle()">
+      <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google">
+      Entrar con Google
+    </button>
+    <div class="login-note">
+      Tus datos se guardan de forma segura en la nube.<br>
+      Accede desde cualquier dispositivo con tu cuenta Google.
+    </div>
+  </div>
+</div>
+
+<!-- ══ APP PRINCIPAL ══ -->
+<div id="app">
+
+<header>
+  <div class="logo">
+    🚪 Gestor<em>Puertas</em>
+    <span class="cloud-badge">☁ NUBE</span>
+    <span class="sync-badge" id="sync-badge">SYNC…</span>
+  </div>
+  <div class="header-btns">
+    <div class="user-info" id="user-info"></div>
+    <button class="btn btn-ghost btn-sm" id="btn-copias" onclick="openBackup()">🗄 Copias</button>
+    <button class="btn btn-secondary btn-sm" onclick="exportCSV()">⬇ CSV fábrica</button>
+    <button class="btn btn-secondary btn-sm" onclick="showListado()">📋 Pedidos</button>
+    <button class="btn btn-primary btn-sm" onclick="showForm()">+ Nuevo</button>
+    <button class="btn btn-ghost btn-sm" onclick="logout()" title="Cerrar sesión">⏻</button>
+  </div>
+</header>
+
+<div id="sync-bar"></div>
+
+<div id="backup-banner">
+  <div style="display:flex;align-items:center;gap:0.6rem;">
+    <span style="font-size:1.2rem">⚠️</span>
+    <span id="banner-text"></span>
+  </div>
+  <div style="display:flex;gap:0.5rem;">
+    <button class="btn btn-success btn-sm" onclick="exportBackup()">💾 Hacer backup ahora</button>
+    <button class="btn btn-ghost btn-sm" style="border-color:rgba(255,255,255,0.3);color:rgba(255,255,255,0.7)" onclick="dismissBanner()">Recordar más tarde</button>
+  </div>
+</div>
+
+<!-- LISTADO -->
+<div class="container" id="view-listado">
+  <div class="stats-bar">
+    <div class="stat-card"><div class="stat-label">Total pedidos</div><div class="stat-value" id="s-total">0</div></div>
+    <div class="stat-card"><div class="stat-label">Unidades</div><div class="stat-value" id="s-uds">0</div></div>
+    <div class="stat-card"><div class="stat-label">Abatibles</div><div class="stat-value" id="s-abatibles">0</div></div>
+    <div class="stat-card"><div class="stat-label">Correderas</div><div class="stat-value" id="s-correderas">0</div></div>
+  </div>
+  <div class="panel">
+    <div class="panel-head">
+      <span>📦 Pedidos registrados</span>
+      <small id="sync-status-label">☁ Sincronizado con Firebase</small>
+    </div>
+    <div class="filter-bar">
+      <input type="text" id="f-search" placeholder="Buscar cliente, referencia, modelo…" oninput="renderTable()">
+      <select id="f-tipo" onchange="renderTable()">
+        <option value="">Todos los tipos</option>
+        <option value="abatible">Abatible</option>
+        <option value="corredera">Corredera</option>
+      </select>
+    </div>
+    <div class="table-wrap">
+      <table><thead><tr>
+        <th>Nº Pedido</th><th>Cliente</th><th>Ref.</th><th>Modelo</th><th>Color</th>
+        <th>Alto×Ancho</th><th>Galce</th><th>Tipo</th><th>Apert.</th>
+        <th>Uds</th><th>Estado</th><th>Baño</th><th>Fecha</th><th>Acciones</th>
+      </tr></thead>
+      <tbody id="table-body"></tbody></table>
+      <div class="empty hidden" id="empty-state">
+        <div class="empty-icon">🚪</div>
+        <h3 id="empty-title">Sin pedidos aún</h3>
+        <p id="empty-sub">Crea el primero con "+ Nuevo"</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FORMULARIO -->
+<div class="form-wrap" id="view-form">
+  <div class="panel">
+    <div class="panel-head"><span id="form-title">🚪 Nuevo pedido de puerta</span></div>
+    <div class="form-body">
+      <div class="section-label">👤 Datos del cliente y pedido</div>
+      <div class="grid g3">
+        <div class="field"><label>Nº Pedido / Presupuesto</label><input type="text" id="f-numPedido" placeholder="PED-2024-001"></div>
+        <div class="field"><label>Cliente <span class="req">*</span></label><input type="text" id="f-cliente" placeholder="Nombre o empresa"></div>
+        <div class="field"><label>Referencia <span class="req">*</span></label><input type="text" id="f-referencia" placeholder="Ref. proyecto / obra"></div>
+      </div>
+      <div class="grid g4" style="margin-top:1rem">
+        <div class="field"><label>Fecha</label><input type="date" id="f-fecha"></div>
+        <div class="field"><label>Estancia / Ubicación</label><input type="text" id="f-estancia" placeholder="Dormitorio, cocina…"></div>
+        <div class="field"><label>Unidades <span class="req">*</span></label><input type="number" id="f-unidades" min="1" value="1"></div>
+        <div class="field"><label>Estado</label>
+          <select id="f-estado">
+            <option value="borrador">Borrador</option><option value="confirmado">Confirmado</option>
+            <option value="enviado">Enviado a fábrica</option><option value="recibido">Recibido</option>
+          </select>
+        </div>
+      </div>
+      <div class="section-label">🏷 Modelo y acabado</div>
+      <div class="grid g3">
+        <div class="field"><label>Modelo <span class="req">*</span></label><input type="text" id="f-modelo" placeholder="Lisa, Acristalada…"></div>
+        <div class="field"><label>Color / Acabado <span class="req">*</span></label><input type="text" id="f-color" placeholder="Blanco lacado, Roble…"></div>
+        <div class="field"><label>Acabado marco</label>
+          <select id="f-acabadoMarco">
+            <option value="">Seleccionar…</option><option value="canteado">Canteado (igual que hoja)</option>
+            <option value="lacado-blanco">Lacado blanco</option><option value="lacado-color">Lacado color específico</option>
+            <option value="natural">Natural / Sin acabado</option>
+          </select>
+        </div>
+      </div>
+      <div class="grid g2" style="margin-top:1rem">
+        <div class="field"><label>Premarco</label>
+          <select id="f-premarco"><option value="">Sin premarco</option><option value="pino">Pino</option><option value="mdf">MDF</option><option value="metalico">Metálico</option></select>
+        </div>
+        <div class="field"><label>Herraje / Tirador</label><input type="text" id="f-herraje" placeholder="Manilla inox…"></div>
+      </div>
+      <div class="section-label">📐 Medidas</div>
+      <div class="grid g5">
+        <div class="field"><label>Alto (mm) <span class="req">*</span></label><input type="number" id="f-alto" placeholder="2030" oninput="calcLuz()"></div>
+        <div class="field"><label>Ancho (mm) <span class="req">*</span></label><input type="number" id="f-ancho" placeholder="825" oninput="calcLuz()"></div>
+        <div class="field"><label>Galce (mm) <span class="req">*</span></label><input type="number" id="f-galce" placeholder="100"></div>
+        <div class="field"><label>Grosor hoja (mm)</label><input type="number" id="f-grosor" placeholder="40"></div>
+        <div class="field"><label>Luz libre (mm)</label><input type="number" id="f-luzLibre" readonly></div>
+      </div>
+      <div class="section-label">🪵 Tapetas</div>
+      <div class="inset-box">
+        <div class="tapeta-row">
+          <div class="tapeta-side">Cara A (interior)</div>
+          <div class="field"><label>Ancho</label><select id="f-tapetaAAncho"><option value="">Sin tapeta</option><option value="7">7 cm</option><option value="9">9 cm</option><option value="11">11 cm</option></select></div>
+          <div class="field"><label>Grosor</label><select id="f-tapetaAGrosor"><option value="">—</option><option value="1.2+0.10">Doble: 12 mm + 10 mm</option><option value="0.10">Simple: 10 mm</option></select></div>
+        </div>
+        <div class="tapeta-row">
+          <div class="tapeta-side">Cara B (exterior)</div>
+          <div class="field"><label>Ancho</label><select id="f-tapetaBAncho"><option value="">Sin tapeta</option><option value="7">7 cm</option><option value="9">9 cm</option><option value="11">11 cm</option></select></div>
+          <div class="field"><label>Grosor</label><select id="f-tapetaBGrosor"><option value="">—</option><option value="1.2+0.10">Doble: 12 mm + 10 mm</option><option value="0.10">Simple: 10 mm</option></select></div>
+        </div>
+        <div class="field" style="margin-top:0.5rem"><label>Color tapetas (si difiere de la hoja)</label><input type="text" id="f-tapetaColor" placeholder="Dejar vacío si es igual"></div>
+      </div>
+      <div class="section-label">🔄 Tipo de funcionamiento</div>
+      <div class="grid g2">
+        <div class="field"><label>Tipo <span class="req">*</span></label>
+          <div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="tipo" value="abatible" onchange="onTipoChange()"> 🚪 Abatible</label>
+            <label class="radio-opt"><input type="radio" name="tipo" value="corredera" onchange="onTipoChange()"> ↔ Corredera</label>
+          </div>
+        </div>
+        <div class="field hidden" id="field-subcorredera"><label>Subtipo corredera</label>
+          <div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="subtipoCorredera" value="exterior"> Exterior visible</label>
+            <label class="radio-opt"><input type="radio" name="subtipoCorredera" value="oculta"> Oculta en tabique</label>
+          </div>
+        </div>
+      </div>
+      <div class="hidden" id="sec-apertura">
+        <div class="section-label">↔ Sentido de apertura</div>
+        <div class="apertura-grid">
+          <div class="apertura-card" onclick="selectApertura('DI',this)"><div class="aicon">↗</div><div class="alabel">Derecha<br>Interior</div></div>
+          <div class="apertura-card" onclick="selectApertura('DD',this)"><div class="aicon">↘</div><div class="alabel">Derecha<br>Exterior</div></div>
+          <div class="apertura-card" onclick="selectApertura('II',this)"><div class="aicon">↖</div><div class="alabel">Izquierda<br>Interior</div></div>
+          <div class="apertura-card" onclick="selectApertura('ID',this)"><div class="aicon">↙</div><div class="alabel">Izquierda<br>Exterior</div></div>
+        </div>
+        <p style="font-size:0.74rem;color:var(--muted);margin-top:0.4rem">💡 Interior = abre hacia la estancia. Exterior = abre hacia el pasillo.</p>
+      </div>
+      <div class="hidden" id="sec-corredera">
+        <div class="section-label">⚙ Opciones de carril</div>
+        <div class="inset-box"><div class="grid g3">
+          <div class="field"><label>Posición del carril</label><select id="f-carril"><option value="">Seleccionar…</option><option value="superior">Solo superior (colgante)</option><option value="inferior">Superior + guía inferior</option></select></div>
+          <div class="field"><label>Cierre suave (soft-close)</label><select id="f-softClose"><option value="no">Sin soft-close</option><option value="si">Con soft-close</option></select></div>
+          <div class="field"><label>Longitud carril (mm)</label><input type="number" id="f-carrilLongitud" placeholder="Ej: 1800"></div>
+        </div></div>
+      </div>
+      <div class="section-label">🚿 ¿Puerta de baño o aseo?</div>
+      <div class="radio-group" style="margin-bottom:0.5rem">
+        <label class="radio-opt"><input type="radio" name="bano" value="no" checked onchange="onBanoChange()"> No</label>
+        <label class="radio-opt"><input type="radio" name="bano" value="si" onchange="onBanoChange()"> Sí, es baño/aseo</label>
+      </div>
+      <div class="hidden" id="sec-bano">
+        <div class="inset-box"><div class="grid g2">
+          <div class="field"><label>Condena (cerrojo interior)</label><div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="condena" value="no" checked> Sin condena</label>
+            <label class="radio-opt"><input type="radio" name="condena" value="si"> Con condena</label>
+          </div></div>
+          <div class="field"><label>Ranura inferior para guía</label><div class="radio-group">
+            <label class="radio-opt"><input type="radio" name="ranura" value="no" checked> Sin ranura</label>
+            <label class="radio-opt"><input type="radio" name="ranura" value="si"> Con ranura</label>
+          </div></div>
+        </div></div>
+      </div>
+      <div class="section-label">🔧 Opciones adicionales</div>
+      <div class="grid g3">
+        <div class="field"><label>Mirilla / Ventana</label><select id="f-mirilla"><option value="no">Sin mirilla</option><option value="ojo-buey">Ojo de buey redondo</option><option value="rectangular">Ventana rectangular</option><option value="translucida">Panel translúcido</option></select></div>
+        <div class="field"><label>Acústica</label><select id="f-acustica"><option value="estandar">Estándar</option><option value="acustica">Refuerzo acústico</option><option value="alta-acustica">Alta insonorización</option></select></div>
+        <div class="field"><label>Bisagras</label><select id="f-bisagras"><option value="3">3 bisagras (estándar)</option><option value="4">4 bisagras (alta carga)</option><option value="ocultas">Bisagras ocultas</option></select></div>
+      </div>
+      <div class="section-label">📝 Notas para fábrica</div>
+      <div class="field"><textarea id="f-notas" placeholder="Instrucciones especiales, particularidades del hueco…"></textarea></div>
+    </div>
+    <div class="form-actions">
+      <button class="btn btn-ghost" onclick="resetForm()">🗑 Limpiar</button>
+      <button class="btn btn-secondary" onclick="showListado()">← Volver</button>
+      <button class="btn btn-primary" id="btn-guardar" onclick="guardar()">☁ Guardar en la nube</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div class="modal-overlay" id="modal-detalle">
+  <div class="modal" style="max-width:860px">
+    <div class="modal-head">
+      <span id="modal-title">Detalle del pedido</span>
+      <div style="display:flex;gap:0.5rem;align-items:center">
+        <button class="btn btn-info btn-sm" onclick="exportCSVOne(currentDetalle)">⬇ CSV</button>
+        <button class="btn btn-secondary btn-sm" onclick="printPedido(currentDetalle)">🖨 Imprimir</button>
+        <button class="modal-close" onclick="closeDetalle()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div class="detail-grid" id="detail-grid"></div>
+      <div id="detail-notes"></div>
+    </div>
+    <div class="modal-footer"><button class="btn btn-secondary btn-sm" onclick="closeDetalle()">Cerrar</button></div>
+  </div>
+</div>
+
+<!-- MODAL COPIAS -->
+<div class="modal-overlay" id="modal-backup">
+  <div class="modal" style="max-width:620px">
+    <div class="modal-head">
+      <span>🗄 Copias de seguridad y exportación</span>
+      <button class="modal-close" onclick="closeBackup()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="bk-box bk-export">
+        <h4>📤 Exportar datos</h4>
+        <p>Descarga todos los pedidos para enviar a fábrica o guardar copia externa.</p>
+        <div style="display:flex;gap:0.65rem;flex-wrap:wrap">
+          <button class="btn btn-success" onclick="exportCSV();closeBackup()">📊 CSV para Excel / Fábrica</button>
+          <button class="btn btn-success" onclick="exportBackup()">💾 Backup JSON completo</button>
+        </div>
+        <small>💡 Aunque los datos ya están en la nube, el backup JSON es una copia externa de seguridad adicional.</small>
+      </div>
+      <div class="bk-box bk-restore">
+        <h4>📥 Restaurar desde archivo</h4>
+        <p><strong>⚠ Reemplaza</strong> todos los pedidos en la nube por los del archivo JSON.</p>
+        <button class="btn btn-warning" onclick="document.getElementById('input-restore').click()">📂 Seleccionar archivo .json y restaurar</button>
+        <input type="file" id="input-restore" accept=".json" style="display:none" onchange="importBackup(this)">
+      </div>
+      <div class="bk-box bk-merge" style="margin-bottom:0">
+        <h4>🔀 Importar y combinar</h4>
+        <p>Añade pedidos del archivo JSON <strong>sin borrar</strong> los existentes.</p>
+        <button class="btn btn-info" onclick="document.getElementById('input-merge').click()">📂 Seleccionar archivo .json y combinar</button>
+        <input type="file" id="input-merge" accept=".json" style="display:none" onchange="mergeBackup(this)">
+      </div>
+      <div class="bk-footer" id="bk-footer">Cargando…</div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /app -->
+<div id="toast"></div>
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+const APP_VER   = '3.0.0';
+const BK_REMIND = 5;
+const COLLECTION = 'pedidos';
+
+let db, auth, currentUser;
+let pedidos  = [];
+let editId   = null;
+let selApert = '';
+let backupMeta = { lastBackupCount:0, lastBackupDate:null, dismissed:false };
+let currentDetalle = null;
+let unsubscribe = null;
+
+// ── FIREBASE INIT ────────────────────────────────────────────
+function isConfigured() {
+  return FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.includes('PEGA_AQUI');
+}
+
+if (!isConfigured()) {
+  // Mostrar pantalla de configuración
+  document.getElementById('config-screen').style.display = 'flex';
+} else {
+  document.getElementById('config-screen').style.display = 'none';
+  firebase.initializeApp(FIREBASE_CONFIG);
+  db   = firebase.firestore();
+  auth = firebase.auth();
+
+  auth.onAuthStateChanged(user => {
+    if (user) {
+      currentUser = user;
+      document.getElementById('login-screen').style.display = 'none';
+      document.getElementById('app').style.display = 'block';
+      const ui = document.getElementById('user-info');
+      ui.innerHTML = user.photoURL
+        ? `<img src="${user.photoURL}" alt=""> ${user.displayName?.split(' ')[0]||''}`
+        : `👤 ${user.displayName?.split(' ')[0]||user.email}`;
+      loadFromFirestore();
+      loadBackupMeta();
+    } else {
+      currentUser = null;
+      document.getElementById('login-screen').style.display = 'flex';
+      document.getElementById('app').style.display = 'none';
+      if (unsubscribe) { unsubscribe(); unsubscribe = null; }
+    }
+  });
+}
+
+function loginGoogle() {
+  const provider = new firebase.auth.GoogleAuthProvider();
+  auth.signInWithPopup(provider).catch(err => {
+    const el = document.getElementById('login-error');
+    el.textContent = 'Error al iniciar sesión: ' + err.message;
+    el.style.display = 'block';
+  });
+}
+
+function logout() {
+  if (confirm('¿Cerrar sesión?')) auth.signOut();
+}
+
+// ── FIRESTORE ────────────────────────────────────────────────
+function userCollection() {
+  return db.collection('usuarios').doc(currentUser.uid).collection(COLLECTION);
+}
+
+function loadFromFirestore() {
+  showSync('Cargando pedidos…');
+  if (unsubscribe) unsubscribe();
+  unsubscribe = userCollection()
+    .orderBy('_createdAt', 'asc')
+    .onSnapshot(snap => {
+      pedidos = snap.docs.map(d => ({ ...d.data(), id: d.id }));
+      renderTable();
+      checkBanner();
+      hideSync();
+    }, err => {
+      showSync('Error de conexión: ' + err.message, true);
+    });
+}
+
+async function saveToFirestore(pedido) {
+  setSyncing(true);
+  try {
+    const col = userCollection();
+    if (pedido._isNew) {
+      delete pedido._isNew;
+      await col.doc(pedido.id).set({ ...pedido, _createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    } else {
+      await col.doc(pedido.id).update({ ...pedido, _updatedAt: firebase.firestore.FieldValue.serverTimestamp() });
+    }
+  } catch(e) { toast('❌ Error al guardar: ' + e.message); }
+  setSyncing(false);
+}
+
+async function deleteFromFirestore(id) {
+  setSyncing(true);
+  try { await userCollection().doc(id).delete(); }
+  catch(e) { toast('❌ Error al eliminar: ' + e.message); }
+  setSyncing(false);
+}
+
+async function restoreAllToFirestore(list) {
+  setSyncing(true);
+  try {
+    const col = userCollection();
+    const existing = await col.get();
+    const batch = db.batch();
+    existing.docs.forEach(d => batch.delete(d.ref));
+    list.forEach(p => {
+      const ref = col.doc(p.id || Date.now().toString());
+      batch.set(ref, { ...p, id: ref.id, _createdAt: firebase.firestore.FieldValue.serverTimestamp() });
+    });
+    await batch.commit();
+  } catch(e) { toast('❌ Error al restaurar: ' + e.message); }
+  setSyncing(false);
+}
+
+function loadBackupMeta() {
+  try {
+    const m = localStorage.getItem('gp_bkmeta_' + (currentUser?.uid||''));
+    if (m) backupMeta = { lastBackupCount:0, lastBackupDate:null, dismissed:false, ...JSON.parse(m) };
+  } catch(_) {}
+}
+
+function saveBackupMeta() {
+  localStorage.setItem('gp_bkmeta_' + (currentUser?.uid||''), JSON.stringify(backupMeta));
+}
+
+// ── SYNC UI ──────────────────────────────────────────────────
+function setSyncing(on) {
+  document.getElementById('sync-badge').style.display = on ? 'inline' : 'none';
+  const btn = document.getElementById('btn-guardar');
+  if (btn) btn.disabled = on;
+}
+
+function showSync(msg, isErr=false) {
+  const bar = document.getElementById('sync-bar');
+  bar.textContent = (isErr ? '❌ ' : '🔄 ') + msg;
+  bar.className = 'visible' + (isErr ? ' error' : '');
+}
+
+function hideSync() {
+  const bar = document.getElementById('sync-bar');
+  bar.className = '';
+}
+
+// ── VIEWS ────────────────────────────────────────────────────
+function showListado() {
+  document.getElementById('view-listado').style.display = 'block';
+  document.getElementById('view-form').classList.remove('active');
+  renderTable(); checkBanner();
+}
+
+function showForm(id) {
+  document.getElementById('view-listado').style.display = 'none';
+  document.getElementById('view-form').classList.add('active');
+  document.getElementById('form-title').textContent = id ? '✏ Editando pedido' : '🚪 Nuevo pedido de puerta';
+}
+
+// ── BANNER ───────────────────────────────────────────────────
+function checkBanner() {
+  const sin = pedidos.length - backupMeta.lastBackupCount;
+  const banner = document.getElementById('backup-banner');
+  const btn = document.getElementById('btn-copias');
+  if (!backupMeta.dismissed && sin >= BK_REMIND) {
+    document.getElementById('banner-text').textContent =
+      `Llevas ${sin} pedido${sin!==1?'s':''} nuevos sin hacer copia de seguridad local. ¡Descarga un backup!`;
+    banner.classList.add('visible');
+    btn.classList.add('btn-backup-alert');
+    btn.textContent = `⚠️ Copias (${sin} sin backup)`;
+  } else {
+    banner.classList.remove('visible');
+    btn.classList.remove('btn-backup-alert');
+    btn.textContent = '🗄 Copias';
+  }
+}
+
+function dismissBanner() {
+  backupMeta.dismissed = true; saveBackupMeta(); checkBanner();
+}
+
+// ── TABLE ────────────────────────────────────────────────────
+function renderTable() {
+  const search = (document.getElementById('f-search')?.value||'').toLowerCase();
+  const tipo   = document.getElementById('f-tipo')?.value||'';
+  const filtered = pedidos.filter(p => {
+    const ms = !search || [p.cliente,p.referencia,p.numPedido,p.modelo].some(v=>(v||'').toLowerCase().includes(search));
+    return ms && (!tipo || p.tipo===tipo);
+  });
+  document.getElementById('s-total').textContent     = pedidos.length;
+  document.getElementById('s-uds').textContent        = pedidos.reduce((a,p)=>a+(parseInt(p.unidades)||1),0);
+  document.getElementById('s-abatibles').textContent  = pedidos.filter(p=>p.tipo==='abatible').length;
+  document.getElementById('s-correderas').textContent = pedidos.filter(p=>p.tipo==='corredera').length;
+  const tbody = document.getElementById('table-body');
+  const empty = document.getElementById('empty-state');
+  if (!filtered.length) {
+    tbody.innerHTML=''; empty.classList.remove('hidden');
+    document.getElementById('empty-title').textContent = pedidos.length===0?'Sin pedidos aún':'Sin resultados';
+    document.getElementById('empty-sub').textContent   = pedidos.length===0?'Crea el primero con "+ Nuevo"':'Prueba con otros filtros';
+    return;
+  }
+  empty.classList.add('hidden');
+  const EC = {borrador:'pill-borrador',confirmado:'pill-confirmado',enviado:'pill-enviado',recibido:'pill-recibido'};
+  tbody.innerHTML = filtered.map((p,i)=>`
+    <tr style="background:${i%2===0?'#fff':'var(--warm)'}">
+      <td><span class="num-badge">${esc(p.numPedido)}</span></td>
+      <td><strong>${esc(p.cliente)}</strong></td>
+      <td class="mono" style="color:var(--muted);font-size:0.78rem">${esc(p.referencia)}</td>
+      <td>${esc(p.modelo)}</td><td>${esc(p.color)}</td>
+      <td class="mono" style="font-size:0.76rem">${p.alto}×${p.ancho}</td>
+      <td class="mono" style="font-size:0.76rem">${p.galce}mm</td>
+      <td><span class="pill ${p.tipo==='abatible'?'pill-abatible':'pill-corredera'}">${p.tipo==='abatible'?'🚪 Abat.':'↔ Corred.'}</span></td>
+      <td class="mono" style="font-size:0.73rem">${esc(p.apertura||p.subtipoCorredera||'—')}</td>
+      <td style="text-align:center;font-weight:700">${p.unidades}</td>
+      <td><span class="pill ${EC[p.estado]||'pill-borrador'}">${esc(p.estado)}</span></td>
+      <td>${p.bano==='si'?'<span class="pill pill-bano">🚿</span>':'—'}</td>
+      <td class="mono" style="font-size:0.7rem">${esc(p.fecha||'—')}</td>
+      <td><div class="td-actions">
+        <button class="btn btn-ghost btn-sm" onclick="openDetalle('${p.id}')">👁</button>
+        <button class="btn btn-secondary btn-sm" onclick="printPedidoById('${p.id}')">🖨</button>
+        <button class="btn btn-info btn-sm" onclick="exportCSVOneById('${p.id}')">⬇</button>
+        <button class="btn btn-secondary btn-sm" onclick="editarPedido('${p.id}')">✏</button>
+        <button class="btn btn-danger btn-sm" onclick="eliminar('${p.id}')">🗑</button>
+      </div></td>
+    </tr>`).join('');
+}
+
+function esc(v){ return String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+
+// ── FORM ────────────────────────────────────────────────────
+function calcLuz(){ const a=parseInt(document.getElementById('f-ancho').value)||0; document.getElementById('f-luzLibre').value=a>0?a-10:''; }
+function onTipoChange(){ const t=document.querySelector('input[name="tipo"]:checked')?.value; document.getElementById('field-subcorredera').classList.toggle('hidden',t!=='corredera'); document.getElementById('sec-apertura').classList.toggle('hidden',t!=='abatible'); document.getElementById('sec-corredera').classList.toggle('hidden',t!=='corredera'); }
+function onBanoChange(){ const b=document.querySelector('input[name="bano"]:checked')?.value; document.getElementById('sec-bano').classList.toggle('hidden',b!=='si'); }
+function selectApertura(val,el){ selApert=val; document.querySelectorAll('.apertura-card').forEach(c=>c.classList.remove('selected')); el.classList.add('selected'); }
+function getRadio(name){ return document.querySelector(`input[name="${name}"]:checked`)?.value||''; }
+function setRadio(name,val){ const r=document.querySelector(`input[name="${name}"][value="${val}"]`); if(r)r.checked=true; }
+function getF(id){ return document.getElementById(id)?.value||''; }
+function setF(id,v){ const el=document.getElementById(id); if(el)el.value=v??''; }
+
+function resetForm(){
+  ['f-numPedido','f-cliente','f-referencia','f-estancia','f-modelo','f-color','f-acabadoMarco','f-premarco','f-herraje','f-alto','f-ancho','f-galce','f-grosor','f-luzLibre','f-tapetaAAncho','f-tapetaAGrosor','f-tapetaBAncho','f-tapetaBGrosor','f-tapetaColor','f-carril','f-carrilLongitud','f-notas'].forEach(id=>setF(id,''));
+  setF('f-unidades','1'); setF('f-fecha',new Date().toISOString().slice(0,10)); setF('f-estado','borrador'); setF('f-softClose','no'); setF('f-mirilla','no'); setF('f-acustica','estandar'); setF('f-bisagras','3');
+  document.querySelectorAll('input[type=radio]').forEach(r=>r.checked=false);
+  setRadio('bano','no'); setRadio('condena','no'); setRadio('ranura','no');
+  selApert=''; editId=null;
+  document.querySelectorAll('.apertura-card').forEach(c=>c.classList.remove('selected'));
+  ['field-subcorredera','sec-apertura','sec-corredera','sec-bano'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+}
+
+// ── GUARDAR ──────────────────────────────────────────────────
+async function guardar(){
+  const req={cliente:getF('f-cliente'),referencia:getF('f-referencia'),modelo:getF('f-modelo'),color:getF('f-color'),alto:getF('f-alto'),ancho:getF('f-ancho'),galce:getF('f-galce'),tipo:getRadio('tipo'),unidades:getF('f-unidades')};
+  if(Object.values(req).some(v=>!v)){toast('⚠ Completa los campos obligatorios (*)');return;}
+  const isNew = !editId;
+  const pedido={
+    id:editId||Date.now().toString(), _isNew:isNew,
+    numPedido:getF('f-numPedido')||`PED-${Date.now().toString().slice(-6)}`,
+    ...req, estancia:getF('f-estancia'), fecha:getF('f-fecha'), estado:getF('f-estado'),
+    acabadoMarco:getF('f-acabadoMarco'), premarco:getF('f-premarco'), herraje:getF('f-herraje'), grosor:getF('f-grosor'),
+    subtipoCorredera:getRadio('subtipoCorredera'), apertura:selApert,
+    carril:getF('f-carril'), softClose:getF('f-softClose'), carrilLongitud:getF('f-carrilLongitud'),
+    tapetaAAncho:getF('f-tapetaAAncho'), tapetaAGrosor:getF('f-tapetaAGrosor'),
+    tapetaBAncho:getF('f-tapetaBAncho'), tapetaBGrosor:getF('f-tapetaBGrosor'), tapetaColor:getF('f-tapetaColor'),
+    bano:getRadio('bano'), condena:getRadio('condena'), ranura:getRadio('ranura'),
+    mirilla:getF('f-mirilla'), acustica:getF('f-acustica'), bisagras:getF('f-bisagras'), notas:getF('f-notas'),
+  };
+  await saveToFirestore(pedido);
+  toast(isNew?'☁ Pedido guardado en la nube':'☁ Pedido actualizado en la nube');
+  resetForm(); showListado();
+}
+
+// ── EDITAR / ELIMINAR ────────────────────────────────────────
+function editarPedido(id){
+  const p=pedidos.find(x=>x.id===id); if(!p)return;
+  editId=id; resetForm();
+  Object.entries(p).forEach(([k,v])=>{ const el=document.getElementById('f-'+k); if(el)el.value=v??''; });
+  if(p.tipo){setRadio('tipo',p.tipo);onTipoChange();}
+  if(p.subtipoCorredera)setRadio('subtipoCorredera',p.subtipoCorredera);
+  if(p.bano){setRadio('bano',p.bano);onBanoChange();}
+  if(p.condena)setRadio('condena',p.condena);
+  if(p.ranura)setRadio('ranura',p.ranura);
+  if(p.apertura){selApert=p.apertura;const MAP={DI:0,DD:1,II:2,ID:3};const cards=document.querySelectorAll('.apertura-card');if(cards[MAP[p.apertura]])cards[MAP[p.apertura]].classList.add('selected');}
+  showForm(id);
+}
+
+async function eliminar(id){
+  if(!confirm('¿Eliminar este pedido definitivamente?'))return;
+  await deleteFromFirestore(id);
+  toast('🗑 Pedido eliminado');
+}
+
+// ── DETALLE ──────────────────────────────────────────────────
+function openDetalle(id){
+  const p=pedidos.find(x=>x.id===id);if(!p)return;
+  currentDetalle=p;
+  document.getElementById('modal-title').textContent=`🚪 ${p.numPedido} — ${p.cliente}`;
+  const pairs=[['Nº Pedido',p.numPedido],['Cliente',p.cliente],['Referencia',p.referencia],['Estancia',p.estancia],['Fecha',p.fecha],['Estado',p.estado],['Unidades',p.unidades],['Modelo',p.modelo],['Color',p.color],['Acabado marco',p.acabadoMarco],['Premarco',p.premarco],['Herraje',p.herraje],['Alto',p.alto+'mm'],['Ancho',p.ancho+'mm'],['Galce',p.galce+'mm'],['Grosor',p.grosor?p.grosor+'mm':'—'],['Tipo',p.tipo],['Subtipo corredera',p.subtipoCorredera||'—'],['Apertura',p.apertura||'—'],['Tapeta A',p.tapetaAAncho?`${p.tapetaAAncho}cm | ${p.tapetaAGrosor}`:'Sin tapeta'],['Tapeta B',p.tapetaBAncho?`${p.tapetaBAncho}cm | ${p.tapetaBGrosor}`:'Sin tapeta'],['Baño/Aseo',p.bano==='si'?'Sí':'No'],['Condena',p.bano==='si'?(p.condena==='si'?'Sí':'No'):'—'],['Ranura inferior',p.bano==='si'?(p.ranura==='si'?'Sí':'No'):'—'],['Carril',p.carril||'—'],['Soft-close',p.softClose==='si'?'Sí':'No'],['Bisagras',p.bisagras],['Acústica',p.acustica],['Mirilla',p.mirilla!=='no'?p.mirilla:'No']];
+  document.getElementById('detail-grid').innerHTML=pairs.map(([k,v])=>`<div class="detail-row"><div class="dk">${k}</div><div class="dv">${esc(v)}</div></div>`).join('');
+  document.getElementById('detail-notes').innerHTML=p.notas?`<div style="margin-top:1rem"><div class="dk" style="font-family:monospace;font-size:0.61rem;text-transform:uppercase;letter-spacing:0.08em;color:var(--muted)">📝 Notas</div><div class="notes-box">${esc(p.notas)}</div></div>`:'';
+  document.getElementById('modal-detalle').classList.add('open');
+}
+function closeDetalle(){ document.getElementById('modal-detalle').classList.remove('open'); }
+function printPedidoById(id){ const p=pedidos.find(x=>x.id===id);if(p)printPedido(p); }
+function exportCSVOneById(id){ const p=pedidos.find(x=>x.id===id);if(p)exportCSVOne(p); }
+
+// ── PRINT ────────────────────────────────────────────────────
+function printPedido(p){
+  const row=(k,v)=>v&&v!=='—'&&v!=='no'&&v!=='estandar'?`<tr><td style="padding:5px 10px;font-size:11px;color:#7a6a58;font-family:monospace;text-transform:uppercase;border-bottom:1px solid #e8dcc8;white-space:nowrap">${k}</td><td style="padding:5px 10px;font-size:12px;font-weight:500;border-bottom:1px solid #e8dcc8">${v}</td></tr>`:'';
+  const html=`<!DOCTYPE html><html><head><meta charset="UTF-8"><title>Pedido ${p.numPedido}</title><style>body{font-family:'Segoe UI',sans-serif;background:#f5f0e8;margin:0;padding:20px}.sheet{background:#fff;max-width:800px;margin:0 auto;border-radius:8px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.12)}.head{background:#1a1410;color:#f5f0e8;padding:20px 28px;display:flex;justify-content:space-between;align-items:center}.head h1{font-size:20px;margin:0}.head .num{font-family:monospace;font-size:13px;background:#c17f3a;color:#1a1410;padding:4px 10px;border-radius:4px}table{width:100%;border-collapse:collapse}.section{background:#e8dcc8;padding:6px 10px;font-family:monospace;font-size:10px;text-transform:uppercase;letter-spacing:.1em;color:#8b4513;font-weight:600}.notes{padding:12px 18px;background:#f0e6d3;font-size:12px;border-top:2px dashed #c8b89a}.footer{padding:10px 18px;background:#1a1410;color:#7a6a58;font-size:10px;font-family:monospace;display:flex;justify-content:space-between}@media print{body{background:#fff;padding:0}.sheet{box-shadow:none}}</style></head><body><div class="sheet"><div class="head"><h1>🚪 Ficha de Pedido</h1><span class="num">${p.numPedido}</span></div><table><tr><td colspan="2" class="section">👤 Cliente y pedido</td></tr>${row('Cliente',p.cliente)}${row('Referencia',p.referencia)}${row('Estancia',p.estancia)}${row('Fecha',p.fecha)}${row('Estado',p.estado)}${row('Unidades',p.unidades)}<tr><td colspan="2" class="section">🏷 Modelo y acabado</td></tr>${row('Modelo',p.modelo)}${row('Color',p.color)}${row('Acabado marco',p.acabadoMarco)}${row('Premarco',p.premarco)}${row('Herraje',p.herraje)}<tr><td colspan="2" class="section">📐 Medidas</td></tr>${row('Alto',p.alto+'mm')}${row('Ancho',p.ancho+'mm')}${row('Galce',p.galce+'mm')}${row('Grosor',p.grosor?p.grosor+'mm':'')}${row('Luz libre',p.ancho?parseInt(p.ancho)-10+'mm':'')}<tr><td colspan="2" class="section">🪵 Tapetas</td></tr>${row('Cara A',p.tapetaAAncho?`${p.tapetaAAncho}cm | ${p.tapetaAGrosor}`:'')}${row('Cara B',p.tapetaBAncho?`${p.tapetaBAncho}cm | ${p.tapetaBGrosor}`:'')}${row('Color tapetas',p.tapetaColor)}<tr><td colspan="2" class="section">🔄 Funcionamiento</td></tr>${row('Tipo',p.tipo)}${row('Subtipo corredera',p.subtipoCorredera)}${row('Apertura',p.apertura)}${row('Carril',p.carril)}${row('Soft-close',p.softClose==='si'?'Sí':'')}${row('Long. carril',p.carrilLongitud?p.carrilLongitud+'mm':'')}${p.bano==='si'?`<tr><td colspan="2" class="section">🚿 Baño</td></tr>${row('Condena',p.condena==='si'?'Sí':'')}${row('Ranura inferior',p.ranura==='si'?'Sí':'')}`:''}<tr><td colspan="2" class="section">🔧 Adicionales</td></tr>${row('Mirilla',p.mirilla!=='no'?p.mirilla:'')}${row('Acústica',p.acustica!=='estandar'?p.acustica:'')}${row('Bisagras',p.bisagras)}</table>${p.notas?`<div class="notes"><strong>📝 Notas:</strong> ${p.notas}</div>`:''}<div class="footer"><span>GestorPuertas v${APP_VER}</span><span>${new Date().toLocaleString('es-ES')}</span></div></div><script>window.onload=()=>window.print()<\/script></body></html>`;
+  const w=window.open('','_blank');w.document.write(html);w.document.close();
+}
+
+// ── CSV ──────────────────────────────────────────────────────
+function toCSV(list){
+  const H=['Nº Pedido','Cliente','Referencia','Estancia','Fecha','Estado','Modelo','Color','Acabado Marco','Premarco','Herraje','Alto (mm)','Ancho (mm)','Galce (mm)','Grosor (mm)','Unidades','Tipo','Subtipo Corredera','Apertura','Tapeta A - Ancho','Tapeta A - Grosor','Tapeta B - Ancho','Tapeta B - Grosor','Color Tapetas','Carril','Soft-close','Long. Carril (mm)','Baño','Condena','Ranura Inferior','Mirilla','Acústica','Bisagras','Notas'];
+  const e=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const rows=list.map(p=>[p.numPedido,p.cliente,p.referencia,p.estancia,p.fecha,p.estado,p.modelo,p.color,p.acabadoMarco,p.premarco,p.herraje,p.alto,p.ancho,p.galce,p.grosor,p.unidades,p.tipo,p.subtipoCorredera,p.apertura,p.tapetaAAncho,p.tapetaAGrosor,p.tapetaBAncho,p.tapetaBGrosor,p.tapetaColor,p.carril,p.softClose,p.carrilLongitud,p.bano,p.condena,p.ranura,p.mirilla,p.acustica,p.bisagras,p.notas].map(e).join(','));
+  return '\uFEFF'+[H.map(e).join(','),...rows].join('\r\n');
+}
+function dlBlob(c,f,t){const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([c],{type:t}));a.download=f;a.click();}
+function exportCSV(){if(!pedidos.length){toast('⚠ No hay pedidos');return;}dlBlob(toCSV(pedidos),`pedidos_${new Date().toISOString().slice(0,10)}.csv`,'text/csv;charset=utf-8');toast('⬇ CSV exportado');}
+function exportCSVOne(p){dlBlob(toCSV([p]),`${p.numPedido}_${(p.cliente||'').replace(/\s/g,'_')}.csv`,'text/csv;charset=utf-8');toast('⬇ Ficha CSV exportada');}
+
+// ── BACKUP ───────────────────────────────────────────────────
+function exportBackup(){
+  const bk={version:APP_VER,fecha_backup:new Date().toISOString(),total_pedidos:pedidos.length,pedidos};
+  dlBlob(JSON.stringify(bk,null,2),`backup_gp_${new Date().toISOString().slice(0,19).replace(/:/g,'-')}.json`,'application/json');
+  backupMeta={lastBackupCount:pedidos.length,lastBackupDate:new Date().toISOString(),dismissed:false};
+  saveBackupMeta(); checkBanner(); updateBkFooter();
+  toast('💾 Backup descargado'); closeBackup();
+}
+
+function importBackup(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      const restored=Array.isArray(data)?data:data.pedidos;
+      if(!restored)throw new Error();
+      if(!confirm(`¿Restaurar ${restored.length} pedido(s)? Se REEMPLAZARÁN los actuales en la nube.`))return;
+      await restoreAllToFirestore(restored);
+      toast(`✅ ${restored.length} pedido(s) restaurados en la nube`);
+      closeBackup();
+    }catch(_){toast('❌ Archivo no válido');}
+  };
+  r.readAsText(file); input.value='';
+}
+
+function mergeBackup(input){
+  const file=input.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=async ev=>{
+    try{
+      const data=JSON.parse(ev.target.result);
+      const imported=Array.isArray(data)?data:data.pedidos;
+      if(!imported)throw new Error();
+      const existIds=new Set(pedidos.map(p=>p.id));
+      const nuevos=imported.filter(p=>!existIds.has(p.id));
+      setSyncing(true);
+      const col=userCollection();
+      const batch=db.batch();
+      nuevos.forEach(p=>{const ref=col.doc(p.id||Date.now().toString());batch.set(ref,{...p,id:ref.id,_createdAt:firebase.firestore.FieldValue.serverTimestamp()});});
+      await batch.commit();
+      setSyncing(false);
+      toast(`✅ ${nuevos.length} pedido(s) añadidos a la nube`);
+      closeBackup();
+    }catch(_){setSyncing(false);toast('❌ Archivo no válido');}
+  };
+  r.readAsText(file); input.value='';
+}
+
+function openBackup(){updateBkFooter();document.getElementById('modal-backup').classList.add('open');}
+function closeBackup(){document.getElementById('modal-backup').classList.remove('open');}
+function updateBkFooter(){
+  const sin=pedidos.length-backupMeta.lastBackupCount;
+  const fecha=backupMeta.lastBackupDate?`Último backup local: <strong>${new Date(backupMeta.lastBackupDate).toLocaleDateString('es-ES')}</strong> · <strong style="color:${sin>=BK_REMIND?'#b45309':'inherit'}">${sin} sin respaldar</strong>`:`<span style="color:#b45309">⚠ Sin backup local todavía</span>`;
+  document.getElementById('bk-footer').innerHTML=`GestorPuertas v${APP_VER} · ${pedidos.length} pedido(s) en la nube · ${fecha}`;
+}
+
+// ── TOAST ────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3500);}
+
+// ── INIT ─────────────────────────────────────────────────────
+document.getElementById('f-fecha') && (document.getElementById('f-fecha').value=new Date().toISOString().slice(0,10));
+</script>
+</body>
+</html>
