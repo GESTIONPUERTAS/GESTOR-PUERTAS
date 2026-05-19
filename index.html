@@ -10,14 +10,14 @@
      Sigue la guía paso a paso para obtener estos valores
      ══════════════════════════════════════════════════════════════ -->
 <script>
-const FIREBASE_CONFIG = {
-    apiKey:            "AIzaSyABC123ejemplo",
-    authDomain:        "gestorpuertas-abc12.firebaseapp.com",
-    projectId:         "gestorpuertas-abc12",
-    storageBucket:     "gestorpuertas-abc12.appspot.com",
-    messagingSenderId: "123456789012",
-    appId:             "1:123456789012:web:abc123def456"
-};
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyB9Z8dFKR-pYBJWQwDL8VVgBdw9AhHCRQ0",
+    authDomain:        "gestor-puertas.firebaseapp.com",
+    projectId:         "gestor-puertas",
+    storageBucket:     "gestor-puertas.firebasestorage.app",
+    messagingSenderId: "620289866583",
+    appId:             "1:620289866583:web:de73a45dd783d0f3db5c12"
+  };
 </script>
 
 <!-- Firebase SDK -->
@@ -582,12 +582,20 @@ if (!isConfigured()) {
 
 function loginGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithPopup(provider).catch(err => {
+  auth.signInWithRedirect(provider).catch(err => {
     const el = document.getElementById('login-error');
     el.textContent = 'Error al iniciar sesión: ' + err.message;
     el.style.display = 'block';
   });
 }
+
+// Recoger resultado tras volver de Google
+auth.getRedirectResult().catch(err => {
+  if (err.code && err.code !== 'auth/no-auth-event') {
+    const el = document.getElementById('login-error');
+    if (el) { el.textContent = 'Error: ' + err.message; el.style.display = 'block'; }
+  }
+});
 
 function logout() {
   if (confirm('¿Cerrar sesión?')) auth.signOut();
