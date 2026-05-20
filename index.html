@@ -582,20 +582,28 @@ if (!isConfigured()) {
 
 function loginGoogle() {
   const provider = new firebase.auth.GoogleAuthProvider();
-  auth.signInWithRedirect(provider).catch(err => {
-    const el = document.getElementById('login-error');
-    el.textContent = 'Error al iniciar sesión: ' + err.message;
-    el.style.display = 'block';
-  });
+  provider.setCustomParameters({ prompt: 'select_account' });
+  // Intentar popup primero, si falla usar redirect
+  auth.signInWithPopup(provider)
+    .catch(err => {
+      if (err.code === 'auth/popup-blocked' || err.code === 'auth/popup-closed-by-user' || err.code === 'auth/operation-not-supported-in-this-environment') {
+        // Fallback a redirect
+        return auth.signInWithRedirect(provider);
+      }
+      const el = document.getElementById('login-error');
+      if (el) { el.textContent = 'Error: ' + err.message; el.style.display = 'block'; }
+    });
 }
 
-// Recoger resultado tras volver de Google
-auth.getRedirectResult().catch(err => {
-  if (err.code && err.code !== 'auth/no-auth-event') {
-    const el = document.getElementById('login-error');
-    if (el) { el.textContent = 'Error: ' + err.message; el.style.display = 'block'; }
-  }
-});
+// Recoger resultado si volvemos de una redirección
+auth.getRedirectResult()
+  .then(result => { /* onAuthStateChanged lo gestiona */ })
+  .catch(err => {
+    if (err.code && err.code !== 'auth/no-auth-event' && err.code !== 'auth/null-user') {
+      const el = document.getElementById('login-error');
+      if (el) { el.textContent = 'Error: ' + err.message; el.style.display = 'block'; }
+    }
+  });
 
 function logout() {
   if (confirm('¿Cerrar sesión?')) auth.signOut();
@@ -921,12 +929,4 @@ function updateBkFooter(){
   document.getElementById('bk-footer').innerHTML=`GestorPuertas v${APP_VER} · ${pedidos.length} pedido(s) en la nube · ${fecha}`;
 }
 
-// ── TOAST ────────────────────────────────────────────────────
-let toastTimer;
-function toast(msg){const el=document.getElementById('toast');el.textContent=msg;el.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>el.classList.remove('show'),3500);}
-
-// ── INIT ─────────────────────────────────────────────────────
-document.getElementById('f-fecha') && (document.getElementById('f-fecha').value=new Date().toISOString().slice(0,10));
-</script>
-</body>
-</html>
+// ── TOAS
