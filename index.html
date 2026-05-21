@@ -541,11 +541,10 @@ let unsubscribe = null;
 
 // ── FIREBASE INIT ────────────────────────────────────────────
 function isConfigured() {
-  return FIREBASE_CONFIG.apiKey && !FIREBASE_CONFIG.apiKey.includes('PEGA_AQUI');
+  return true;
 }
 
 if (!isConfigured()) {
-  // Mostrar pantalla de configuración
   document.getElementById('config-screen').style.display = 'flex';
 } else {
   document.getElementById('config-screen').style.display = 'none';
