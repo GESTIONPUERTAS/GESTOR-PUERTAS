@@ -10,7 +10,14 @@
      Sigue la guía paso a paso para obtener estos valores
      ══════════════════════════════════════════════════════════════ -->
 <script>
-const FIREBASE_CONFIG = {"apiKey":"AIzaSyB9Z8dFKR-pYBJWQwDL8VVgBdw9AhHCRQ0","authDomain":"gestor-puertas.firebaseapp.com","projectId":"gestor-puertas","storageBucket":"gestor-puertas.firebasestorage.app","messagingSenderId":"620289866583","appId":"1:620289866583:web:de73a45dd783d0f3db5c12"};
+  const FIREBASE_CONFIG = {
+    apiKey:            "AIzaSyB9Z8dFKR-pYBJWQwDL8VVgBdw9AhHCRQ0",
+    authDomain:        "gestor-puertas.firebaseapp.com",
+    projectId:         "gestor-puertas",
+    storageBucket:     "gestor-puertas.firebasestorage.app",
+    messagingSenderId: "620289866583",
+    appId:             "1:620289866583:web:de73a45dd783d0f3db5c12"
+  };
 </script>
 
 <!-- Firebase SDK -->
@@ -541,10 +548,11 @@ let unsubscribe = null;
 
 // ── FIREBASE INIT ────────────────────────────────────────────
 function isConfigured() {
-  return true;
+  return FIREBASE_CONFIG.apiKey && FIREBASE_CONFIG.apiKey.length > 10 && FIREBASE_CONFIG.apiKey.startsWith('AIza');
 }
 
 if (!isConfigured()) {
+  // Mostrar pantalla de configuración
   document.getElementById('config-screen').style.display = 'flex';
 } else {
   document.getElementById('config-screen').style.display = 'none';
@@ -918,7 +926,4 @@ function closeBackup(){document.getElementById('modal-backup').classList.remove(
 function updateBkFooter(){
   const sin=pedidos.length-backupMeta.lastBackupCount;
   const fecha=backupMeta.lastBackupDate?`Último backup local: <strong>${new Date(backupMeta.lastBackupDate).toLocaleDateString('es-ES')}</strong> · <strong style="color:${sin>=BK_REMIND?'#b45309':'inherit'}">${sin} sin respaldar</strong>`:`<span style="color:#b45309">⚠ Sin backup local todavía</span>`;
-  document.getElementById('bk-footer').innerHTML=`GestorPuertas v${APP_VER} · ${pedidos.length} pedido(s) en la nube · ${fecha}`;
-}
-
-// ── TOAS
+  document.getElementById('bk-footer').innerHTML=`GestorPuertas v${APP_VER} · ${pedidos.length} pedido(s) en 
